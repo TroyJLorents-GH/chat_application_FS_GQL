@@ -12,17 +12,77 @@ export const GET_ME = gql`
   }
 `;
 
+export const GET_GROUPS = gql`
+  query GetGroups {
+    groups {
+      id
+      name
+      description
+      icon
+      roomCount
+      createdAt
+    }
+  }
+`;
+
 export const GET_CHAT_ROOMS = gql`
-  query GetChatRooms {
-    chatRooms {
+  query GetChatRooms($groupId: ID) {
+    chatRooms(groupId: $groupId) {
       id
       name
       description
       createdAt
       messageCount
+      lastActivity
+      tags
+      group {
+        id
+        name
+        icon
+      }
       members {
         id
         name
+      }
+    }
+  }
+`;
+
+export const SEARCH_ROOMS = gql`
+  query SearchRooms($query: String!, $groupId: ID) {
+    searchRooms(query: $query, groupId: $groupId) {
+      id
+      name
+      description
+      createdAt
+      messageCount
+      lastActivity
+      tags
+      group {
+        id
+        name
+        icon
+      }
+      members {
+        id
+        name
+      }
+    }
+  }
+`;
+
+export const GET_POPULAR_TOPICS = gql`
+  query GetPopularTopics($groupId: ID, $limit: Int) {
+    getPopularTopics(groupId: $groupId, limit: $limit) {
+      keyword
+      frequency
+      rooms {
+        id
+        name
+        group {
+          name
+          icon
+        }
       }
     }
   }
@@ -97,12 +157,18 @@ export const LOGIN = gql`
 `;
 
 export const CREATE_CHAT_ROOM = gql`
-  mutation CreateChatRoom($name: String!, $description: String) {
-    createChatRoom(name: $name, description: $description) {
+  mutation CreateChatRoom($name: String!, $description: String, $groupId: ID!, $tags: [String!]) {
+    createChatRoom(name: $name, description: $description, groupId: $groupId, tags: $tags) {
       id
       name
       description
       createdAt
+      group {
+        id
+        name
+        icon
+      }
+      tags
     }
   }
 `;

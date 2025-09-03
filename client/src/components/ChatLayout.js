@@ -6,6 +6,8 @@ import AuthContext from '../contexts/AuthContext';
 import Sidebar from './Sidebar';
 import ChatRoom from './ChatRoom';
 import CreateRoomModal from './CreateRoomModal';
+import Groups from './Groups';
+import SearchComponent from './Search';
 import { LogOut, Plus, Menu, X } from 'lucide-react';
 
 const ChatLayout = () => {
@@ -15,7 +17,9 @@ const ChatLayout = () => {
   const navigate = useNavigate();
 
   const { data: meData, loading: meLoading } = useQuery(GET_ME);
-  const { data: roomsData, loading: roomsLoading, refetch: refetchRooms } = useQuery(GET_CHAT_ROOMS);
+  const { data: roomsData, loading: roomsLoading, refetch: refetchRooms } = useQuery(GET_CHAT_ROOMS, {
+    variables: {} // Get all rooms without group filtering
+  });
 
   const handleLogout = () => {
     logout();
@@ -109,6 +113,8 @@ const ChatLayout = () => {
                 </div>
               } 
             />
+            <Route path="/groups" element={<Groups />} />
+            <Route path="/search" element={<SearchComponent />} />
             <Route path="/:roomId" element={<ChatRoom />} />
           </Routes>
         </div>

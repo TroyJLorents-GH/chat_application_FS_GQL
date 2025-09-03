@@ -17,8 +17,16 @@ const resolvers = {
       return await db.getAllUsers();
     },
     
-    chatRooms: async () => {
-      return await db.getAllChatRooms();
+    groups: async () => {
+      return await db.getAllGroups();
+    },
+    
+    group: async (_, { id }) => {
+      return await db.getGroupById(id);
+    },
+    
+    chatRooms: async (_, { groupId }) => {
+      return await db.getAllChatRooms(groupId);
     },
     
     chatRoom: async (_, { id }) => {
@@ -27,6 +35,18 @@ const resolvers = {
     
     messages: async (_, { roomId }) => {
       return await db.getMessagesByRoomId(roomId);
+    },
+    
+    searchMessages: async (_, { keyword, groupId }) => {
+      return await db.searchMessages(keyword, groupId);
+    },
+    
+    searchRooms: async (_, { query, groupId }) => {
+      return await db.searchRooms(query, groupId);
+    },
+    
+    getPopularTopics: async (_, { groupId, limit }) => {
+      return await db.getPopularTopics(groupId, limit);
     }
   },
 
@@ -71,14 +91,31 @@ const resolvers = {
       return { token, user };
     },
 
-    createChatRoom: async (_, { name, description }, { user }) => {
+    createGroup: async (_, { name, description, icon }, { user }) => {
+      if (!user) throw new Error('Not authenticated');
+      
+      const group = await db.createGroup({
+        id: uuidv4(),
+        name,
+        description,
+        icon,
+        createdAt: new Date().toISOString()
+      });
+
+      return group;
+    },
+
+    createChatRoom: async (_, { name, description, groupId, tags }, { user }) => {
       if (!user) throw new Error('Not authenticated');
       
       const room = await db.createChatRoom({
         id: uuidv4(),
         name,
         description,
-        createdAt: new Date().toISOString()
+        groupId,
+        createdAt: new Date().toISOString(),
+        lastActivity: new Date().toISOString(),
+        tags: tags ? tags.join(',') : null
       });
 
       // Add creator as member
@@ -147,6 +184,16 @@ const resolvers = {
     }
   },
 
+  Group: {
+    chatRooms: async (parent) => {
+      return await db.getChatRoomsByGroup(parent.id);
+    },
+    roomCount: async (parent) => {
+      const rooms = await db.getChatRoomsByGroup(parent.id);
+      return rooms.length;
+    }
+  },
+
   User: {
     chatRooms: async (parent) => {
       return await db.getChatRoomsByUserId(parent.id);
@@ -154,6 +201,9 @@ const resolvers = {
   },
 
   ChatRoom: {
+    group: async (parent) => {
+      return await db.getGroupById(parent.groupId);
+    },
     members: async (parent) => {
       return await db.getUsersByRoomId(parent.id);
     },
@@ -163,6 +213,9 @@ const resolvers = {
     messageCount: async (parent) => {
       const messages = await db.getMessagesByRoomId(parent.id);
       return messages.length;
+    },
+    tags: async (parent) => {
+      return parent.tags ? parent.tags.split(',') : [];
     }
   },
 
@@ -172,6 +225,9 @@ const resolvers = {
     },
     room: async (parent) => {
       return await db.getChatRoomById(parent.roomId);
+    },
+    tags: async (parent) => {
+      return parent.tags ? parent.tags.split(',') : [];
     }
   }
 };

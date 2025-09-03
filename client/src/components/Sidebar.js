@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { MessageCircle, Plus, LogOut, User, Users } from 'lucide-react';
+import { MessageCircle, Plus, LogOut, User, Users, Search } from 'lucide-react';
 import { useMutation } from '@apollo/client';
 import { JOIN_CHAT_ROOM } from '../graphql/operations';
 
@@ -46,11 +46,38 @@ const Sidebar = ({ rooms, loading, onCreateRoom, onLogout, user }) => {
         </div>
       </div>
 
+      {/* Navigation */}
+      <div className="p-4 border-b border-gray-200 space-y-2">
+        <Link
+          to="/chat"
+          className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors duration-200"
+        >
+          <MessageCircle className="h-4 w-4" />
+          <span>All Rooms</span>
+        </Link>
+        
+        <Link
+          to="/chat/groups"
+          className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors duration-200"
+        >
+          <Users className="h-4 w-4" />
+          <span>Groups</span>
+        </Link>
+        
+        <Link
+          to="/chat/search"
+          className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors duration-200"
+        >
+          <Search className="h-4 w-4" />
+          <span>Search</span>
+        </Link>
+      </div>
+
       {/* Create room button */}
       <div className="p-4 border-b border-gray-200">
         <button
           onClick={onCreateRoom}
-          className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors duration-200"
+          className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors duration-200"
         >
           <Plus className="h-4 w-4" />
           <span>Create Room</span>
