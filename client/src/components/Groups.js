@@ -12,7 +12,7 @@ const Groups = () => {
   const { data: groupsData, loading: groupsLoading, error: groupsError } = useQuery(GET_GROUPS);
   const { data: roomsData, loading: roomsLoading, error: roomsError } = useQuery(GET_CHAT_ROOMS, {
     variables: { groupId: selectedGroup || null },
-    skip: false // Always fetch rooms
+    skip: !selectedGroup // Only fetch rooms when a group is selected
   });
   
   // Debug logging
@@ -22,12 +22,7 @@ const Groups = () => {
   console.log('Rooms error:', roomsError);
 
   const groups = groupsData?.groups || [];
-  const allRooms = roomsData?.chatRooms || [];
-  
-  // Filter rooms by selected group
-  const rooms = selectedGroup 
-    ? allRooms.filter(room => room.group?.id === selectedGroup)
-    : allRooms;
+  const rooms = roomsData?.chatRooms || [];
 
   const filteredGroups = groups.filter(group =>
     group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -71,60 +66,6 @@ const Groups = () => {
 
               {/* Groups Grid */}
         <div className="flex-1 overflow-y-auto p-4">
-          {/* Show all rooms when no group is selected */}
-          {!selectedGroup && (
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">All Chat Rooms</h2>
-              {roomsLoading ? (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600 mx-auto"></div>
-                </div>
-              ) : rooms.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {rooms.map((room) => (
-                    <Link
-                      key={room.id}
-                      to={`/chat/${room.id}`}
-                      className="block p-4 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors duration-200"
-                    >
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="text-lg">{room.group?.icon}</span>
-                        <span className="text-sm text-gray-500">({room.group?.name})</span>
-                      </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">{room.name}</h3>
-                      <p className="text-sm text-gray-600 mb-2">{room.description}</p>
-                      
-                      {/* Tags */}
-                      {room.tags && room.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-2">
-                          {room.tags.slice(0, 3).map((tag, index) => (
-                            <span
-                              key={index}
-                              className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded-full"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center space-x-4 text-xs text-gray-400">
-                        <MessageCircle className="h-3 w-3" />
-                        <span>{room.messageCount || 0}</span>
-                        <Users className="h-3 w-3" />
-                        <span>{room.members?.length || 0}</span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <p className="text-sm">No chat rooms found</p>
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredGroups.map((group) => (
             <div
