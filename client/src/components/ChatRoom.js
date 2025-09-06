@@ -1,78 +1,48 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useSubscription, useApolloClient } from '@apollo/client';
-import { GET_CHAT_ROOM, SEND_MESSAGE, MESSAGE_ADDED } from '../graphql/operations';
-import { Send, ArrowLeft, Users, Info } from 'lucide-react';
+import { useQuery, useMutation, useSubscription } from '@apollo/client';
+import { GET_CHAT_ROOM, SEND_MESSAGE, MESSAGE_ADDED, LEAVE_CHAT_ROOM } from '../graphql/operations';
+import { Send, ArrowLeft, Users, Info, X, LogOut } from 'lucide-react';
 
 const ChatRoom = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const client = useApolloClient();
   const [message, setMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
   const messagesEndRef = useRef(null);
-  const typingTimeoutRef = useRef(null);
 
-  const { data: roomData, loading: roomLoading, error: roomError } = useQuery(GET_CHAT_ROOM, {
+  const { data: roomData, loading: roomLoading, error: roomError, refetch } = useQuery(GET_CHAT_ROOM, {
     variables: { id: roomId },
     fetchPolicy: 'cache-and-network',
   });
 
   const [sendMessage, { loading: sendingMessage }] = useMutation(SEND_MESSAGE, {
-    update: (cache, { data }) => {
-      // Update the cache to include the new message
-      const existingData = cache.readQuery({
-        query: GET_CHAT_ROOM,
-        variables: { id: roomId },
-      });
+    onCompleted: () => {
+      // Refetch the chat room data to show the new message
+      refetch();
+    },
+  });
 
-      if (existingData && data?.sendMessage) {
-        cache.writeQuery({
-          query: GET_CHAT_ROOM,
-          variables: { id: roomId },
-          data: {
-            chatRoom: {
-              ...existingData.chatRoom,
-              messages: [...existingData.chatRoom.messages, data.sendMessage],
-            },
-          },
-        });
-      }
+  const [leaveRoom, { loading: leavingRoom }] = useMutation(LEAVE_CHAT_ROOM, {
+    onCompleted: () => {
+      // Navigate back to the main chat page after leaving
+      navigate('/chat');
     },
   });
 
   // Real-time subscription for new messages
-  const { data: subscriptionData } = useSubscription(MESSAGE_ADDED, {
+  useSubscription(MESSAGE_ADDED, {
     variables: { roomId },
     skip: !roomId,
-  });
-
-  // Handle subscription data updates
-  useEffect(() => {
-    if (subscriptionData?.messageAdded) {
-      const newMessage = subscriptionData.messageAdded;
-      
-      // Update the cache with the new message
-      const existingData = client.cache.readQuery({
-        query: GET_CHAT_ROOM,
-        variables: { id: roomId },
-      });
-
-      if (existingData && newMessage) {
-        client.cache.writeQuery({
-          query: GET_CHAT_ROOM,
-          variables: { id: roomId },
-          data: {
-            chatRoom: {
-              ...existingData.chatRoom,
-              messages: [...existingData.chatRoom.messages, newMessage],
-            },
-          },
-        });
+    onSubscriptionData: ({ subscriptionData }) => {
+      if (subscriptionData?.data?.messageAdded) {
+        // Refetch the chat room data to show the new message
+        refetch();
+        scrollToBottom();
       }
-      scrollToBottom();
-    }
-  }, [subscriptionData, client, roomId]);
+    },
+  });
 
   // Scroll to bottom on initial load
   useEffect(() => {
@@ -100,15 +70,6 @@ const ChatRoom = () => {
     }
   };
 
-  const handleTyping = () => {
-    setIsTyping(true);
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-    }, 1000);
-  };
 
   if (roomLoading) {
     return (
@@ -178,11 +139,36 @@ const ChatRoom = () => {
         </div>
         
         <div className="flex items-center space-x-2">
-          <button className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100">
+          <button 
+            onClick={() => setShowMembersModal(true)}
+            className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            title="View Members"
+          >
             <Users className="h-5 w-5" />
           </button>
-          <button className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100">
+          <button 
+            onClick={() => setShowInfoModal(true)}
+            className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            title="Room Info"
+          >
             <Info className="h-5 w-5" />
+          </button>
+          <button 
+            onClick={async () => {
+              if (window.confirm('Are you sure you want to leave this room?')) {
+                try {
+                  await leaveRoom({ variables: { roomId } });
+                } catch (error) {
+                  console.error('Error leaving room:', error);
+                  alert('Error leaving room. Please try again.');
+                }
+              }
+            }}
+            disabled={leavingRoom}
+            className="p-2 rounded-md text-red-600 hover:text-red-900 hover:bg-red-50 disabled:opacity-50"
+            title="Leave Room"
+          >
+            <LogOut className="h-5 w-5" />
           </button>
         </div>
       </div>
@@ -225,24 +211,6 @@ const ChatRoom = () => {
           ))
         )}
         
-        {isTyping && (
-          <div className="flex space-x-3">
-            <div className="flex-shrink-0">
-              <div className="h-8 w-8 bg-gray-200 rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium text-gray-500">...</span>
-              </div>
-            </div>
-            <div className="flex-1">
-              <div className="bg-gray-100 rounded-lg px-3 py-2">
-                <div className="typing-indicator">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
         
         <div ref={messagesEndRef} />
       </div>
@@ -253,10 +221,7 @@ const ChatRoom = () => {
           <input
             type="text"
             value={message}
-            onChange={(e) => {
-              setMessage(e.target.value);
-              handleTyping();
-            }}
+            onChange={(e) => setMessage(e.target.value)}
             placeholder="Type a message..."
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             disabled={sendingMessage}
@@ -270,6 +235,99 @@ const ChatRoom = () => {
           </button>
         </form>
       </div>
+
+      {/* Room Info Modal */}
+      {showInfoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Room Information</h3>
+              <button
+                onClick={() => setShowInfoModal(false)}
+                className="p-1 rounded-md text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">{room.name}</h4>
+                <p className="text-sm text-gray-600">{room.description || 'No description available'}</p>
+              </div>
+              
+              {room.group && (
+                <div>
+                  <h5 className="font-medium text-gray-700 mb-1">Group</h5>
+                  <p className="text-sm text-gray-600">{room.group.icon} {room.group.name}</p>
+                </div>
+              )}
+              
+              {room.tags && room.tags.length > 0 && (
+                <div>
+                  <h5 className="font-medium text-gray-700 mb-2">Tags</h5>
+                  <div className="flex flex-wrap gap-2">
+                    {room.tags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex items-center justify-between text-sm text-gray-500 pt-2 border-t">
+                <span>Created: {new Date(room.createdAt).toLocaleDateString()}</span>
+                <span>{room.messageCount || 0} messages</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Members Modal */}
+      {showMembersModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Room Members</h3>
+              <button
+                onClick={() => setShowMembersModal(false)}
+                className="p-1 rounded-md text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {room.members && room.members.length > 0 ? (
+                room.members.map((member) => (
+                  <div key={member.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50">
+                    <div className="h-8 w-8 bg-primary-100 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium text-primary-600">
+                        {member.name ? member.name.charAt(0).toUpperCase() : 'U'}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{member.name || 'Unknown User'}</p>
+                      <p className="text-xs text-gray-500">{member.email}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">No members in this room</p>
+              )}
+            </div>
+            
+            <div className="mt-4 pt-4 border-t text-sm text-gray-500 text-center">
+              {room.members?.length || 0} member{(room.members?.length || 0) !== 1 ? 's' : ''} total
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

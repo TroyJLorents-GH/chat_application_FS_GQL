@@ -63,6 +63,18 @@ const client = new ApolloClient({
           },
         },
       },
+      ChatRoom: {
+        fields: {
+          messages: {
+            merge(existing = [], incoming) {
+              // Merge new messages with existing ones, avoiding duplicates
+              const existingIds = new Set(existing.map(msg => msg.id));
+              const newMessages = incoming.filter(msg => !existingIds.has(msg.id));
+              return [...existing, ...newMessages];
+            },
+          },
+        },
+      },
     },
   }),
   defaultOptions: {

@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useContext } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
-import { GET_ME, GET_CHAT_ROOMS } from '../graphql/operations';
+import { GET_ME, GET_CHAT_ROOMS, GET_MY_CHAT_ROOMS } from '../graphql/operations';
 import AuthContext from '../contexts/AuthContext';
 import Sidebar from './Sidebar';
 import ChatRoom from './ChatRoom';
 import CreateRoomModal from './CreateRoomModal';
 import Groups from './Groups';
 import SearchComponent from './Search';
-import { LogOut, Plus, Menu, X } from 'lucide-react';
+import AllRooms from './AllRooms';
+import { LogOut, Plus, Menu } from 'lucide-react';
 
 const ChatLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -17,7 +18,8 @@ const ChatLayout = () => {
   const navigate = useNavigate();
 
   const { data: meData, loading: meLoading } = useQuery(GET_ME);
-  const { data: roomsData, loading: roomsLoading, refetch: refetchRooms } = useQuery(GET_CHAT_ROOMS, {
+  const { data: myRoomsData, loading: myRoomsLoading, refetch: refetchMyRooms } = useQuery(GET_MY_CHAT_ROOMS);
+  const { refetch: refetchAllRooms } = useQuery(GET_CHAT_ROOMS, {
     variables: {} // Get all rooms without group filtering
   });
 
@@ -32,7 +34,8 @@ const ChatLayout = () => {
 
   const handleRoomCreated = () => {
     setCreateRoomModalOpen(false);
-    refetchRooms();
+    refetchMyRooms();
+    refetchAllRooms();
   };
 
   if (meLoading) {
@@ -62,8 +65,8 @@ const ChatLayout = () => {
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <Sidebar 
-          rooms={roomsData?.chatRooms || []}
-          loading={roomsLoading}
+          rooms={myRoomsData?.me?.chatRooms || []}
+          loading={myRoomsLoading}
           onCreateRoom={handleCreateRoom}
           onLogout={handleLogout}
           user={meData?.me}
@@ -113,6 +116,7 @@ const ChatLayout = () => {
                 </div>
               } 
             />
+            <Route path="/all-rooms" element={<AllRooms />} />
             <Route path="/groups" element={<Groups />} />
             <Route path="/search" element={<SearchComponent />} />
             <Route path="/:roomId" element={<ChatRoom />} />

@@ -48,6 +48,32 @@ export const GET_CHAT_ROOMS = gql`
   }
 `;
 
+export const GET_MY_CHAT_ROOMS = gql`
+  query GetMyChatRooms {
+    me {
+      id
+      chatRooms {
+        id
+        name
+        description
+        createdAt
+        messageCount
+        lastActivity
+        tags
+        group {
+          id
+          name
+          icon
+        }
+        members {
+          id
+          name
+        }
+      }
+    }
+  }
+`;
+
 export const SEARCH_ROOMS = gql`
   query SearchRooms($query: String!, $groupId: ID) {
     searchRooms(query: $query, groupId: $groupId) {
