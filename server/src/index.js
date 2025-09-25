@@ -10,7 +10,7 @@ require('dotenv').config();
 
 const typeDefs = require('./schema');
 const resolvers = require('./resolvers');
-const db = require('./database');
+const { connectDB, initSampleData, database: db } = require('./mongodb');
 
 const app = express();
 const httpServer = createServer(app);
@@ -128,9 +128,11 @@ useServer(
 // Start server
 const startServer = async () => {
   try {
-    // Initialize database
-    await db.init();
-    console.log('✅ Database initialized with sample data');
+    // Connect to MongoDB
+    await connectDB();
+    
+    // Initialize sample data
+    await initSampleData();
 
     // Start Apollo Server
     await server.start();
@@ -142,9 +144,9 @@ const startServer = async () => {
       console.log(`🚀 GraphQL server ready at http://localhost:${PORT}${server.graphqlPath}`);
       console.log(`🔌 WebSocket server ready at ws://localhost:${PORT}/graphql`);
       console.log(`📱 Sample users you can login with:`);
-      console.log(`   - alice@example.com (password: any)`);
-      console.log(`   - bob@example.com (password: any)`);
-      console.log(`   - charlie@example.com (password: any)`);
+      console.log(`   - alice@example.com (password: password123)`);
+      console.log(`   - bob@example.com (password: password123)`);
+      console.log(`   - charlie@example.com (password: password123)`);
     });
   } catch (error) {
     console.error('❌ Error starting server:', error);

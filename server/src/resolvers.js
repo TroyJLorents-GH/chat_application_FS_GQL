@@ -1,8 +1,6 @@
 const { PubSub } = require('graphql-subscriptions');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
-const db = require('./database');
+const db = require('./mongodb').database;
 
 const pubsub = new PubSub();
 
@@ -57,16 +55,13 @@ const resolvers = {
         throw new Error('User already exists');
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
       const user = await db.createUser({
-        id: uuidv4(),
         email,
         name,
-        password: hashedPassword,
-        createdAt: new Date().toISOString()
+        password
       });
 
-      const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || 'secret', {
+      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', {
         expiresIn: '7d'
       });
 
@@ -79,12 +74,12 @@ const resolvers = {
         throw new Error('User not found');
       }
 
-      const isValidPassword = await bcrypt.compare(password, user.password);
+      const isValidPassword = await user.comparePassword(password);
       if (!isValidPassword) {
         throw new Error('Invalid password');
       }
 
-      const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || 'secret', {
+      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', {
         expiresIn: '7d'
       });
 
@@ -95,13 +90,11 @@ const resolvers = {
       if (!user) throw new Error('Not authenticated');
       
       const group = await db.createGroup({
-        id: uuidv4(),
         name,
         description,
-        icon,
-        createdAt: new Date().toISOString()
+        icon
       });
-
+      
       return group;
     },
 
@@ -109,17 +102,14 @@ const resolvers = {
       if (!user) throw new Error('Not authenticated');
       
       const room = await db.createChatRoom({
-        id: uuidv4(),
         name,
         description,
-        groupId,
-        createdAt: new Date().toISOString(),
-        lastActivity: new Date().toISOString(),
-        tags: tags ? tags.join(',') : null
+        group: groupId,
+        tags: tags || []
       });
 
       // Add creator as member
-      await db.addUserToRoom(user.id, room.id);
+      await db.joinChatRoom(user.id, room._id);
       
       pubsub.publish('USER_JOINED_ROOM', {
         userJoinedRoom: await db.getUserById(user.id)
@@ -131,7 +121,7 @@ const resolvers = {
     joinChatRoom: async (_, { roomId }, { user }) => {
       if (!user) throw new Error('Not authenticated');
       
-      await db.addUserToRoom(user.id, roomId);
+      await db.joinChatRoom(user.id, roomId);
       
       pubsub.publish('USER_JOINED_ROOM', {
         userJoinedRoom: await db.getUserById(user.id)
@@ -143,7 +133,7 @@ const resolvers = {
     leaveChatRoom: async (_, { roomId }, { user }) => {
       if (!user) throw new Error('Not authenticated');
       
-      await db.removeUserFromRoom(user.id, roomId);
+      await db.leaveChatRoom(user.id, roomId);
       
       pubsub.publish('USER_LEFT_ROOM', {
         userLeftRoom: await db.getUserById(user.id)
@@ -156,11 +146,9 @@ const resolvers = {
       if (!user) throw new Error('Not authenticated');
       
       const message = await db.createMessage({
-        id: uuidv4(),
         text,
-        authorId: user.id,
-        roomId,
-        createdAt: new Date().toISOString()
+        author: user.id,
+        room: roomId
       });
 
       // Publish to subscription
@@ -196,38 +184,38 @@ const resolvers = {
 
   User: {
     chatRooms: async (parent) => {
-      return await db.getChatRoomsByUserId(parent.id);
+      return await db.getChatRoomsByUserId(parent._id);
     }
   },
 
   ChatRoom: {
     group: async (parent) => {
-      return await db.getGroupById(parent.groupId);
+      return await db.getGroupById(parent.group);
     },
     members: async (parent) => {
-      return await db.getUsersByRoomId(parent.id);
+      return await db.getUsersByRoomId(parent._id);
     },
     messages: async (parent) => {
-      return await db.getMessagesByRoomId(parent.id);
+      return await db.getMessagesByRoomId(parent._id);
     },
     messageCount: async (parent) => {
-      const messages = await db.getMessagesByRoomId(parent.id);
+      const messages = await db.getMessagesByRoomId(parent._id);
       return messages.length;
     },
     tags: async (parent) => {
-      return parent.tags ? parent.tags.split(',') : [];
+      return parent.tags || [];
     }
   },
 
   Message: {
     author: async (parent) => {
-      return await db.getUserById(parent.authorId);
+      return await db.getUserById(parent.author);
     },
     room: async (parent) => {
-      return await db.getChatRoomById(parent.roomId);
+      return await db.getChatRoomById(parent.room);
     },
     tags: async (parent) => {
-      return parent.tags ? parent.tags.split(',') : [];
+      return parent.tags || [];
     }
   }
 };
